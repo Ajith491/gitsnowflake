@@ -1,62 +1,31 @@
-name: snowflake-migration-demo
- 
+name: Query Snowflake using PAT
+
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - 'deploy/**'
   workflow_dispatch:
- 
+
 jobs:
-  deploy-snowflake-changes-job:
+  run-query:
     runs-on: ubuntu-latest
- 
+
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v2
- 
-      - name: Use Python 3.8.x
-        uses: actions/setup-python@v2
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
         with:
-          python-version: '3.8'
- 
-      - name: Patch certificate validation for Snowflake
-        run: |
-          pip install "certifi<2025.4.26" -t certifi_temp
-          echo "REQUESTS_CA_BUNDLE=$(pwd)/certifi_temp/certifi/cacert.pem" >> $GITHUB_ENV
- 
-      - name: Install schemachange
-        run: pip install schemachange
- 
-      - name: Debug:List SQL files in deploy/
-        run: |
-          echo "Listing SQL files in $GITHUB_WORKSPACE/deploy"
-          find $GITHUB_WORKSPACE/deploy -type f -name "*.sql"
- 
-      - name: Create connections.toml
-        run: |
-          cat <<EOF > connections.toml
-          [default]
-          account = "${{ secrets.SF_ACCOUNT }}"
-          user = "${{ secrets.SF_USERNAME }}"
-          password = "${{ secrets.SF_PASSWORD }}"
-          role = "${{ secrets.SF_ROLE }}"
-          warehouse = "${{ secrets.SF_WAREHOUSE }}"
-          database = "${{ secrets.SF_DATABASE }}"
-          EOF
- 
-      - name: Fix connections.toml permissions
-        run: |
-          chmod 0600 connections.toml
-          echo "Permissions updated for connections.toml"
- 
-      - name: Run schemachange
-        run: |
-          echo "GITHUB_WORKSPACE: $GITHUB_WORKSPACE"
-          python --version
-          schemachange -f $GITHUB_WORKSPACE/deploy \
-            -c ${{ secrets.SF_DATABASE }}.SCHEMACHANGE.CHANGE_HISTORY \
-            --create-change-history-table \
-            --connections-file-path connections.toml \
-            --connection-name default
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: pip install snowflake-connector-python
+
+      - name: Run query with username/password
+        env:
+          SNOWFLAKE_USERNAME: ${{ secrets.SNOWFLAKE_USERNAME }}
+          SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
+          SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+          SNOWFLAKE_ROLE: ${{ secrets.SNOWFLAKE_ROLE }}
+          SNOWFLAKE_WAREHOUSE: ${{ secrets.SNOWFLAKE_WAREHOUSE }}
+          SNOWFLAKE_DATABASE: ${{ secrets.SNOWFLAKE_DATABASE }}
+          SNOWFLAKE_SCHEMA: ${{ secrets.SNOWFLAKE_SCHEMA }}
+        run: python query_with_pat.py
